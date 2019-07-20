@@ -7,66 +7,73 @@ public class Player : MonoBehaviour
     PlayerData _data;
     [Header("Player")]
     public Animator _anim;
-    bool podeAtacar = true, podePular = true;
+    [Header("Movimentação")]
+    bool podePular = true;
     Rigidbody2D _rb2D;
     float direcao = 1;
+    [Header("Ataque")]
+    bool podeAtacar = true;
+    public GameObject _area;    
 
     void Start()
     {
         _data = GetComponent<PlayerData>();
         _rb2D = GetComponent<Rigidbody2D>();
+        _area = GameObject.Find("arma");
     }
 
     void Update()
     {
         Mover(Input.GetButton("Horizontal"));
         Atacar(Input.GetKeyDown(KeyCode.J));
-        Pulo(Input.GetKeyDown(KeyCode.Space));
+        Pulo(Input.GetKeyDown(KeyCode.W));
+        if (podePular)
+        {
+            _anim.SetBool("caiu", false);
+        }
     }
 
     private void Pulo(bool pulou)
     {
         if (pulou && podePular)
         {
-            _anim.SetBool("pulando", true);
-            _anim.SetBool("andando", false);
-            podePular = false;
+            podePular = false;         
             StartCoroutine(pular());
         }
     }
 
     IEnumerator pular()
     {
-        yield return new WaitForSeconds(0.35f);
+        yield return new WaitForSeconds(0.15f);
         _rb2D.AddForce(Vector2.up * 500);
-        yield return new WaitForSeconds(0.4f);
-        podePular = true;
     }
 
     private void Atacar(bool atacou)
     {
-        RaycastHit2D hitInfo = ray();
-        Debug.DrawLine(transform.position, new Vector2(direcao, 0));
+        _area.transform.localPosition = direcao < 0 ? new Vector2(-0.6f, -0.2f) : new Vector2(0,-0.2f);
         if (atacou)
             if (podeAtacar)
             {
                 _anim.SetBool("ataque", true);
                 podeAtacar = false;
-                if (hitInfo)
-                    if (hitInfo.collider.tag == "inimigo")
-                    {
-                        Debug.Log("Hit");
-                    }
+                dano(GameObject.Find("arma"));   
                 StartCoroutine(ataque());
             }
             else
                 _anim.SetBool("ataque", false);
     }
 
-    public RaycastHit2D ray()
+    void dano(GameObject area)
     {
-        RaycastHit2D ray = Physics2D.Raycast(transform.position, new Vector2(direcao, 0), 5);
-        return ray;
+        Collider2D[] colider = new Collider2D[3];
+        area.GetComponent<BoxCollider2D>().OverlapCollider(new ContactFilter2D(), colider);
+        foreach (Collider2D colisao in colider)
+        {
+            if(colisao != null && colisao.gameObject.CompareTag("inimigo"))
+            {
+                colisao.GetComponent<Inimigo>()._vida -= _data._dano;
+            }
+        }
     }
 
     IEnumerator ataque()
@@ -105,21 +112,26 @@ public class Player : MonoBehaviour
         {
             _anim.SetBool("caiu", true);
             _anim.SetBool("pulando", false);
-        }
+        }        
     }
     private void OnCollisionStay2D(Collision2D collision)
     {
-        if (collision.transform.tag == "chao")
+        if(collision.transform.tag == "chao")
+        podePular = collision.contacts[0].point.y < transform.position.y;
+        if (podePular)
         {
+            _anim.SetBool("pulando", false);
             _anim.SetBool("caiu", false);
-            podePular = true;
         }
     }
     private void OnCollisionExit2D(Collision2D collision)
     {
         if (collision.transform.tag == "chao")
         {
+            _anim.SetBool("pulando", true);
+            _anim.SetBool("andando", false);
             podePular = false;
         }
     }
+   
 }
